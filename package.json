@@ -1,0 +1,25 @@
+{
+  "name": "outbox-labs-email-scheduler",
+  "version": "1.0.0",
+  "description": "Production-oriented full-stack email scheduler with BullMQ, Redis, PostgreSQL, Elasticsearch, Google OAuth, Slack OAuth, and React",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start": "docker-compose -f docker-compose.yml up -d && npm run dev",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:worker": "npm run dev:worker --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "test": "npm run test --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

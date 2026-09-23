@@ -1,0 +1,11 @@
+# Git
+node_modules/
+dist/
+.env
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.js.map
