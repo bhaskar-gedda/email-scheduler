@@ -18,6 +18,7 @@ export const authApi = {
   },
 
   getGoogleLoginUrl(): string {
-    return '/api/auth/google';
+    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+    return `${baseUrl}/auth/google`;
   },
 };

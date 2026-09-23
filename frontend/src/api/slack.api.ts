@@ -12,6 +12,7 @@ export const slackApi = {
   },
 
   getConnectUrl(): string {
-    return '/api/slack/connect';
+    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+    return `${baseUrl}/slack/connect`;
   },
 };

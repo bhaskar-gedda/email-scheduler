@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
+
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -15,3 +17,4 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
