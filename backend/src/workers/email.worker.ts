@@ -1,7 +1,8 @@
 import { Worker, Job } from 'bullmq';
 import crypto from 'crypto';
+import http from 'http';
 import { EMAIL_QUEUE_NAME, EmailJobData, rescheduleEmailJob } from '../queues/email.queue';
-import { redisOptions } from '../queues/redis.client';
+import { redis } from '../queues/redis.client';
 import { prisma } from '../models/prisma';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
@@ -79,7 +80,23 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
   const campaign = email.campaign;
 
   // ==========================================================================
-  // Step 2: Distributed Atomic Hourly Rate Limiting
+  // Step 2: Distributed Atomic Per-Sender Minimum Delay
+  // ==========================================================================
+  const delayCheck = await rateLimiterService.reserveSenderMinDelay(
+    sender.id,
+    campaign.delayBetweenEmails
+  );
+
+  if (!delayCheck.allowedImmediately && delayCheck.waitMs > 0) {
+    logger.debug(
+      { emailId, senderId: sender.id, waitMs: delayCheck.waitMs },
+      'Applying minimum sender delay before delivery'
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayCheck.waitMs));
+  }
+
+  // ==========================================================================
+  // Step 3: Distributed Atomic Hourly Rate Limiting
   // ==========================================================================
   const hourlyCheck = await rateLimiterService.checkAndIncrementHourlyLimit(
     sender.id,
@@ -122,66 +139,31 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
     });
 
     // Check notification lock and send real Slack alert if acquired
-    const slackStatus = await slackService.getStatus(campaign.userId);
-    if (slackStatus.connected) {
-      const lockAcquired = await rateLimiterService.tryAcquireSlackNotificationLock(
-        sender.id,
-        hourlyCheck.hourWindow
-      );
-
-      if (lockAcquired) {
-        await slackService.sendRateLimitAlert(
-          campaign.userId,
-          sender.email,
-          campaign.hourlyLimit,
-          nextWindow
+    try {
+      const slackStatus = await slackService.getStatus(campaign.userId);
+      if (slackStatus.connected) {
+        const lockAcquired = await rateLimiterService.tryAcquireSlackNotificationLock(
+          sender.id,
+          hourlyCheck.hourWindow
         );
+
+        if (lockAcquired) {
+          await slackService.sendRateLimitAlert(
+            campaign.userId,
+            sender.email,
+            campaign.hourlyLimit,
+            nextWindow
+          );
+        }
       }
+    } catch (err: any) {
+      logger.error(
+        { emailId, senderId: sender.id, err: err?.message || err },
+        'Failed to send Slack rate limit alert'
+      );
     }
 
     return;
-  }
-
-  // ==========================================================================
-  // Step 3: Distributed Atomic Per-Sender Minimum Delay
-  // ==========================================================================
-  const delayCheck = await rateLimiterService.reserveSenderMinDelay(
-    sender.id,
-    campaign.delayBetweenEmails
-  );
-
-  if (!delayCheck.allowedImmediately && delayCheck.waitMs > 0) {
-    if (delayCheck.waitMs > 10000) {
-      const nextWindow = new Date(Date.now() + delayCheck.waitMs);
-      
-      // Reschedule safely without blocking the worker
-      await prisma.email.update({
-        where: { id: emailId },
-        data: {
-          status: 'SCHEDULED', // Use SCHEDULED because it's just maintaining minimum delay
-          scheduledAt: nextWindow,
-          processingLeaseExpiresAt: null,
-          processingWorkerId: null,
-        },
-      });
-
-      const bullJobId = email.bullJobId || `email:${email.id}`;
-      await rescheduleEmailJob(email.id, nextWindow, bullJobId);
-      await emailIndexerService.updateEmailStatus(email.id, {
-        status: 'SCHEDULED',
-        scheduledAt: nextWindow,
-      });
-
-      logger.info({ emailId, waitMs: delayCheck.waitMs }, 'Delay > 10s. Rescheduled email to maintain minimum delay.');
-      return;
-    } else {
-      logger.debug(
-        { emailId, senderId: sender.id, waitMs: delayCheck.waitMs },
-        'Applying minimum sender delay before delivery'
-      );
-      // Pause for the atomic reserved slot to maintain send spacing
-      await new Promise((resolve) => setTimeout(resolve, delayCheck.waitMs));
-    }
   }
 
   // ==========================================================================
@@ -275,7 +257,7 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
 
 // Create and export the BullMQ Worker instance
 export const emailWorker = new Worker<EmailJobData>(EMAIL_QUEUE_NAME, processEmailJob, {
-  connection: redisOptions,
+  connection: redis,
   concurrency: config.WORKER_CONCURRENCY,
   limiter: {
     max: 100,
@@ -302,8 +284,20 @@ if (require.main === module) {
     'Email worker started independently'
   );
 
+  // Bind to PORT for Render Web Service (Free Tier) port-binding check
+  const PORT = process.env.PORT || 10000;
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('BullMQ Worker is running\n');
+  });
+
+  server.listen(PORT, () => {
+    logger.info(`Worker health check HTTP server listening on port ${PORT}`);
+  });
+
   const shutdown = async () => {
     logger.info('Shutting down email worker gracefully...');
+    server.close();
     await emailWorker.close();
     process.exit(0);
   };
