@@ -44,6 +44,24 @@ const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return <>{children}</>;
 };
 
+const RootRoute: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[#f8fafc]">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard/scheduled" replace />;
+  }
+
+  return <Navigate to="/login" replace />;
+};
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -64,8 +82,8 @@ export const App: React.FC = () => {
             <Route path="sent" element={<SentPage />} />
           </Route>
 
-          <Route path="/" element={<Navigate to="/dashboard/scheduled" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard/scheduled" replace />} />
+          <Route path="/" element={<RootRoute />} />
+          <Route path="*" element={<RootRoute />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

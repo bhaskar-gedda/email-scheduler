@@ -15,6 +15,7 @@ export class EmailService {
 
     const where = {
       campaign: { userId },
+      status: { in: ['SCHEDULED', 'PROCESSING', 'RATE_LIMITED'] },
     };
 
     const [total, items] = await Promise.all([

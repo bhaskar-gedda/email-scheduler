@@ -20,6 +20,11 @@ export interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ onOpenCompose }) => {
   const { user, logout } = useAuth();
 
+  const getQueueMonitorUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || '/api';
+    return `${apiUrl.replace(/\/api\/?$/, '')}/admin/queues`;
+  };
+
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen select-none shrink-0">
       {/* Brand Header */}
@@ -87,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCompose }) => {
         </div>
 
         <a
-          href="/admin/queues"
+          href={getQueueMonitorUrl()}
           target="_blank"
           rel="noreferrer"
           className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
