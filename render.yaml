@@ -1,0 +1,68 @@
+services:
+  # The Express Backend API
+  - type: web
+    name: email-scheduler-api
+    env: node
+    region: ohio
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: email-scheduler-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: email-scheduler-redis
+          property: connectionString
+      - key: FRONTEND_URL
+        sync: false # You must set this in the Render Dashboard
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SLACK_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+
+  # The BullMQ Background Worker
+  - type: worker
+    name: email-scheduler-worker
+    env: node
+    region: ohio
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: email-scheduler-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: email-scheduler-redis
+          property: connectionString
+      - key: SLACK_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+
+databases:
+  - name: email-scheduler-db
+    databaseName: email_scheduler
+    user: db_user
+    plan: free
+    region: ohio
+
+# Render requires Redis instances to be provisioned separately or through paid plans in Blueprints, 
+# but they provide a free Redis instance integration if created manually, or we can use a free plan here.
