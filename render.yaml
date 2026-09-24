@@ -30,8 +30,8 @@ services:
       - key: SLACK_TOKEN_ENCRYPTION_KEY
         value: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
-  # The BullMQ Background Worker
-  - type: worker
+  # The BullMQ Background Worker (deployed as a web service for free plan compatibility)
+  - type: web
     name: email-scheduler-worker
     env: node
     region: ohio
@@ -39,6 +39,7 @@ services:
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm run start:worker
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
