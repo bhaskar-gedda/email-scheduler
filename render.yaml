@@ -16,12 +16,9 @@ services:
           name: email-scheduler-db
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: email-scheduler-redis
-          property: connectionString
+        sync: false
       - key: FRONTEND_URL
-        sync: false # You must set this in the Render Dashboard
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
@@ -31,7 +28,7 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: SLACK_TOKEN_ENCRYPTION_KEY
-        generateValue: true
+        value: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
   # The BullMQ Background Worker
   - type: worker
@@ -50,12 +47,9 @@ services:
           name: email-scheduler-db
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: email-scheduler-redis
-          property: connectionString
+        sync: false
       - key: SLACK_TOKEN_ENCRYPTION_KEY
-        generateValue: true
+        value: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 databases:
   - name: email-scheduler-db
@@ -63,6 +57,3 @@ databases:
     user: db_user
     plan: free
     region: ohio
-
-# Render requires Redis instances to be provisioned separately or through paid plans in Blueprints, 
-# but they provide a free Redis instance integration if created manually, or we can use a free plan here.
