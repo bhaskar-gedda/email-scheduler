@@ -1,5 +1,5 @@
 import { Queue, JobsOptions } from 'bullmq';
-import { redisOptions } from './redis.client';
+import { redis } from './redis.client';
 import { logger } from '../config/logger';
 
 export const EMAIL_QUEUE_NAME = 'email-sending-queue';
@@ -9,7 +9,7 @@ export interface EmailJobData {
 }
 
 export const emailQueue = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
-  connection: redisOptions,
+  connection: redis,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
