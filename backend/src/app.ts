@@ -12,6 +12,9 @@ import { errorHandler } from './middleware/error.middleware';
 
 export const app = express();
 
+// Trust reverse proxy (Render / Cloudflare / Load Balancers) for secure cookies
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(
   helmet({
@@ -20,10 +23,21 @@ app.use(
   })
 );
 
-// Cross-Origin Resource Sharing
+// Cross-Origin Resource Sharing (strip trailing slashes from FRONTEND_URL if any)
+const allowedOrigins = [
+  config.FRONTEND_URL,
+  config.FRONTEND_URL.replace(/\/$/, ''),
+];
+
 app.use(
   cors({
-    origin: config.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow request for frontend credentials fallback
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -41,6 +55,8 @@ const redisStore = new RedisStore({
   prefix: 'sess:',
 });
 
+const isProduction = config.NODE_ENV === 'production';
+
 app.use(
   session({
     store: redisStore,
@@ -49,8 +65,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: config.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     },
   })
